@@ -288,7 +288,7 @@
       packagingFeeElement.textContent = packaging;
       totalCostElement.textContent = total + packaging;
       const orderSummary = cart.map(i => `${i.name} x ${i.qty}`).join("%0A");
-      document.getElementById("whatsappLink").href = `https://wa.me/919005678554?text=Hi%2C%20I%20want%20to%20order%3A%0A${orderSummary}%0AAddress%3A%20${encodeURIComponent(address)}%0A%0APackaging%3A%20₹${packaging}%0ADelivery%3A%20To%20be%20confirmed%20after%20location%0ATotal%3A%20₹${total + packaging}%20%2B%20delivery`;
+      document.getElementById("whatsappLink").href = `https://wa.me/919936438151?text=Hi%2C%20I%20want%20to%20order%3A%0A${orderSummary}%0AAddress%3A%20${encodeURIComponent(address)}%0A%0APackaging%3A%20₹${packaging}%0ADelivery%3A%20To%20be%20confirmed%20after%20location%0ATotal%3A%20₹${total + packaging}%20%2B%20delivery`;
     }
 
     function copyUPI() {
