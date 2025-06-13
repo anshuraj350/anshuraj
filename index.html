@@ -1,0 +1,313 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Anshuraj Foods</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .hero-bg {
+      background: url('https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80') no-repeat center center;
+      background-size: cover;
+    }
+    .menu-item {
+      transition: all 0.3s ease;
+    }
+    .menu-item:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+    }
+    .menu-item img {
+      max-width: 80px;
+      max-height: 80px;
+      object-fit: cover;
+      border-radius: 8px;
+      transition: transform 0.3s ease;
+    }
+    .menu-item:hover img {
+      transform: scale(1.05);
+    }
+    .fade-in {
+      animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .cart-slide {
+      transition: all 0.3s ease;
+    }
+    .cart-slide:hover {
+      transform: translateX(5px);
+    }
+    @media (max-width: 640px) {
+      .menu-item {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .menu-item img {
+        max-width: 100%;
+        height: auto;
+      }
+      .qty-controls {
+        margin-top: 1rem;
+      }
+    }
+  </style>
+</head>
+<body class="font-poppins bg-amber-50 text-gray-800">
+  <!-- Hero Section -->
+  <section class="hero-bg relative py-20">
+    <div class="absolute inset-0 bg-black opacity-50"></div>
+    <div class="container mx-auto text-center relative z-10">
+      <h1 class="text-5xl font-bold text-white mb-4 animate-fade-in">Anshuraj Foods</h1>
+      <p class="text-xl text-white mb-6">Savor the taste of Kanpur with our delicious dishes, delivered in 35–40 mins!</p>
+      <a href="#menu" class="inline-block bg-red-500 text-white py-3 px-6 rounded-full hover:bg-red-600 transition duration-300">Explore Menu</a>
+    </div>
+  </section>
+
+  <header class="bg-gradient-to-r from-red-500 to-orange-400 text-white py-4 sticky top-0 z-50 shadow-lg">
+    <div class="container mx-auto text-center">
+      <h2 class="text-2xl font-semibold">Order Now</h2>
+    </div>
+  </header>
+
+  <main class="container mx-auto py-8 px-4">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-3xl font-bold text-gray-800">Our Menu</h2>
+      <div class="relative w-full max-w-md">
+        <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">🔍</span>
+        <input type="text" id="searchInput" placeholder="Search menu..." oninput="filterMenu()" class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" aria-label="Search menu items" />
+      </div>
+    </div>
+
+    <div class="menu-section grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" id="menu"></div>
+
+    <div class="cart-summary mt-12 bg-white p-6 rounded-lg shadow-md cart-slide">
+      <h3 class="text-2xl font-semibold mb-4">Cart Summary</h3>
+      <div id="cartItems" class="space-y-2"></div>
+      <div class="summary-line mt-4">Packaging: ₹<span id="packagingFee">0</span></div>
+      <div class="summary-line">Delivery: ₹<span id="deliveryFee">To be confirmed after live location</span></div>
+      <div class="summary-line font-bold">Total: ₹<span id="totalCost">0</span> + delivery</div>
+    </div>
+
+    <div class="address-input mt-6">
+      <input type="text" id="userAddress" placeholder="Enter your address or any note for delivery" oninput="updateCart()" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" aria-label="Enter delivery address" />
+    </div>
+
+    <a class="whatsapp-btn inline-block bg-green-500 text-white py-3 px-6 rounded-lg mt-6 hover:bg-green-600 transition duration-300" id="whatsappLink" href="#" target="_blank">Order on WhatsApp</a>
+
+    <div class="payment-section mt-8 p-6 bg-amber-100 rounded-lg shadow-md">
+      <h3 class="text-2xl font-semibold mb-4">Payment Options</h3>
+      <div class="flex items-center space-x-2">
+        <span>✔ UPI: <strong id="upiId">9936438151-3@ybl</strong></span>
+        <button class="copy-btn bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-600 transition duration-300" onclick="copyUPI()">Copy UPI ID</button>
+      </div>
+      <img class="qr-code mt-4 w-40 rounded" src="/images/qr-code.jpg" alt="UPI QR Code for payment" />
+      <div class="mt-2">✔ Cash on Delivery (COD)</div>
+    </div>
+
+    <div class="mt-8">
+      <h3 class="text-xl font-semibold">Note:</h3>
+      <p class="text-gray-600">After placing your order, please share your <strong>Live Location on WhatsApp</strong> so we can calculate the delivery charges.</p>
+    </div>
+  </main>
+
+  <footer class="bg-gray-100 py-6 text-center text-gray-600">
+    <p>Contact us: 9454345246 | Delivery in 35–40 mins | UPI: 9936438151-3@ybl</p>
+    <p class="mt-2">© 2025 Anshuraj Foods. All rights reserved.</p>
+  </footer>
+
+  <script>
+    const menu = [
+      { name: "Pani Puri (6 pieces)", price: 30, image: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Pani_Puri1.JPG/960px-Pani_Puri1.JPG" },
+      { name: "Bhel Puri", price: 50, image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Indian_cuisine-Chaat-Bhelpuri-03.jpg/1200px-Indian_cuisine-Chaat-Bhelpuri-03.jpg" },
+      { name: "Dahi Puri (6 pieces)", price: 40, image: "https://hogr.app/blog/wp-content/uploads/2022/10/dahi-puri-chat-is-indian-road-side-snack-item-which-is-especially-popular-state-maharashtra-india-scaled.webp" },
+      { name: "Maggie", price: 60, image: "https://nfcihospitality.com/wp-content/uploads/2024/09/types-of-Maggi-Noodles-1.jpg" },
+      { name: "Macroni", price: 60, image: "https://feeds.abplive.com/onecms/images/uploaded-images/2022/12/20/7d785f2ebc439ef5751e86bf5887d53d1671544482506506_original.jpeg?impolicy=abp_cdn&imwidth=320" },
+      { name: "Aloo Tikki Chaat", price: 40, image: "https://www.archanaskitchen.com/images/archanaskitchen/0-Archanas-Kitchen-Recipes/2018/Achari_Chole_Tikki_Chaat_Recipe-7.jpg" },
+      { name: "Chowmein", price: 80, image: "https://i.ndtvimg.com/i/2016-06/noodles-625_625x350_41465896870.jpg" },
+      { name: "Momos", price: 60, image: "https://www.natashamohan.com/wp-content/uploads/2025/01/Weight-Loss-Momos-Recipe-scaled.webp" },
+      { name: "Samosa Chaat", price: 45, image: "https://art.whisk.com/image/upload/fl_progressive,h_600,w_800,c_fill/v1708455089/recipe/5f75d11cee1b82536c94d8e6aff984f1.jpg" },
+      { name: "Chole Bhature", price: 60, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTEvLpuz1ZSUF9JcIvNqU8w9JCxkX0_32KgJw&s" },
+      { name: "Pav Bhaji", price: 80, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRrwum_fE01g0yFrHjdBDo0jUBwRKW7RFyPoA&s" },
+      { name: "Vada Pav", price: 45, image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Vada_Pav-Indian_street_food.JPG/960px-Vada_Pav-Indian_street_food.JPG" },
+      { name: "French fries", price: 35, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVnHQEnD5OZJLIdUGCb31Eod-6MLMHIB_yLg&s" },
+      { name: "Poha", price: 50, image: "https://nfcihospitality.com/wp-content/uploads/2024/11/kanda-poha.jpg" },
+      { name: "Samosa (1 piece)", price: 15, image: "https://img-cdn.publive.online/fit-in/1200x675/sanjeev-kapoor/media/post_banners/c78dadf87df1a0d0a08bcb3e9f2267997ed90e6d27e8e8fdc924bac6c2ec3694.JPG" },
+      { name: "Kachori Chole (1 piece)", price: 30, image: "https://basantsweets.in/wp-content/uploads/2022/07/Chola-Kachori.jpg" },
+      { name: "Pakora ", price: 45, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRzVAjy7-Jfi6dwpvEi0ZGcylod5ZzW_Z2Fkw&s" },
+      { name: "Bread Pakora (2 piece)", price: 50, image:"https://static.toiimg.com/photo/84629641.cms" },
+      { name: "Egg Roll", price: 50 , image: "https://salasdaily.com/cdn/shop/files/boiledeggroll.jpg?v=1695034796" },
+      { name: "Aloo Tikki Burger (Desi McBurger)", price: 70, image: "https://mcdonaldsblog.in/wp-content/uploads/2022/03/McAloo-tikki1.jpg" },
+      { name: "Chicken Tikka (6 pieces)", price: 170, image: "https://www.whiskaffair.com/wp-content/uploads/2020/06/Chicken-Tikka-2-3.jpg" },
+      { name: "Paneer Tikka", price: 150, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQfPSukRfeHtN7tj8-ayndPIH9C0Bt1VVrbbA&s" },
+      { name: "Matka Kulfi", price: 70, image: "https://5.imimg.com/data5/DX/XQ/GB/SELLER-8096437/matka-kulfi-pot.jpg" },
+      { name: "Burger", price: 60, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQTWDyORYdom-H9I3ojqkoGTc8RS4s7ojzcHA&s" },
+      { name: "Dosa (Plain)", price: 60, image: "https://millex.in/cdn/shop/files/Two_millet_dosas_with_two_chutneys.jpg?v=1742190961&width=1946" },
+      { name: "Masala Dosa", price: 80, image: "https://vismaifood.com/storage/app/uploads/public/8b4/19e/427/thumb__1200_0_0_0_auto.jpg" },
+      { name: "Kulcha with Chole", price: 70, image: "https://media-assets.swiggy.com/swiggy/image/upload/f_auto,q_auto,fl_lossy/913eb8346cda6461e537dc432bc597c2" },
+      { name: "Puri Sabzi", price: 60, image: "https://araizrasoi.com/wp-content/uploads/2024/07/Untitled-design-2024-07-20T000314.882.jpg" },
+      { name: "Litti Chokha", price: 70, image: "https://binjalsvegkitchen.com/wp-content/uploads/2024/12/Litti-Chokha-H1.jpg" },
+      { name: "Aloo Paratha", price: 50, image: "https://cookingfromheart.com/wp-content/uploads/2020/09/Aloo-Paratha-4.jpg" },
+      { name: "Paneer Paratha", price: 70, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSzYeJ6PLufL6eudq8DI-4kSuPtlkXKtIIQiQ&s" },
+      { name: "Tawa Roti with Sabzi", price: 60, image: "https://b.zmtcdn.com/data/dish_photos/df3/f7a3ae8cdb6f8b31626249348787cdf3.jpg" },
+      { name: "Jalebi (100g)", price: 50, image: "https://swahilifood.com/wp-content/uploads/jalebis-500x375.webp" },
+      { name: "Gulab Jamun (1 piece)", price: 30, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQRHpjmf-6lWzOzxaL_kZBfJtknukk1ZnnK_g&s" },
+      { name: "Gujiya", price: 35, image: "https://dainiksaveratimes.com/wp-content/uploads/2025/03/Untitled-8-copy-25.jpg" },
+      { name: "Fried Rice", price: 70, image: "https://hips.hearstapps.com/hmg-prod/images/easy-egg-fried-rice-1653402730.jpg?crop=1.00xw:1.00xh;0,0&resize=1200:*" },
+      { name: "Rasgulla (1 piece)", price: 30, image: "https://5.imimg.com/data5/GV/HI/MY-28856529/rasgulla-250x250.jpg" },
+      { name: " Veg Deluxe Thali", price: 250, image: "https://3.imimg.com/data3/JT/MP/MY-8862929/deluxe-thali-500x500.png" },
+      { name: "Chicken briyani", price: 100, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSPTXEICeyoDwisw-4PE-PDps-I5D2mDMFgZQ&s" },
+      { name: "Rasmalai (1 piece)", price: 40, image: "https://instamart-media-assets.swiggy.com/swiggy/image/upload/fl_lossy,f_auto,q_auto,h_960,w_960//InstamartAssets/rasmalai%20(1).webp?updatedAt=1727156174218" },
+      { name: "Veg thail", price: 150 , image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSImqr6MxtZuq4V9u5IxPa7PymG1Fj6TUmf0w&s" },
+      { name: "Coffee", price: 30, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSgqpEjWZM4UwJMAWrJkeSuyhnrWYfHvMdIKQ&s" },
+      { name: "Veg Briyani", price: 50, image: "https://i.ytimg.com/vi/Do7ZdUodDdw/maxresdefault.jpg" },
+      { name: "Masala Chai", price:25, image: "https://cdn.shopify.com/s/files/1/0758/6929/0779/files/Masala_Tea_-_Annams_Recipes_Shop_2_480x480.jpg?v=1732347934" },
+      { name: "Bread mukkhan", price: 35, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT7jWgKtp1We-dTetWYurR7pXzjsGAEunE2xQ&s" },
+      { name: "Lassi (Sweet)", price: 50, image: "https://www.indianveggiedelight.com/wp-content/uploads/2023/01/sweet-lassi-recipe-featured.jpg" },
+      { name: "Mango Lassi", price: 60, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRaLh1vKvxo44A_Y1EthJ0YcCdYHZzeqyzGuQ&s" },
+      { name: "Buttermilk (Chaach)", price: 25, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSqeVxMQRmr_PEcZ1819gjJwrjyRO0SS3az6Q&s" },
+      { name: "Sugarcane Juice", price: 25, image: "https://www.theauric.com/cdn/shop/articles/fresh-squeezed-sugar-cane-juice-with-fresh-cane-sliced-isolated-white-background_1000x.jpg?v=1647859027" },
+      { name: "Shikanji", price: 55, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRthvAmr8ruqBuMlqwoeoYCwPpEXyyEyAvJnA&s" },
+      { name: "Chicken popcorn ", price: 85, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRSxwu00MtX31wIrRwaFUz6VdbrWgf7HPPL2g&s" },
+      { name: "waterbottel", price: 25, image: "https://jagsfresh-bucket.s3.amazonaws.com/media/package/img_one/2019-09-02/Bisleri_mineral_water_1ltr_20rs_1.jpg" },
+      { name: "Corn & Cheese Pizza ", price: 139, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR6F3woU1LSZkUovSdPfglLOTGoM1BrD5NYcA&s" }
+      ,
+      { name: "Onion Capsicum Pizza ", price: 139, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSDYUFgZuOl5a3YUvzIcKhztnSYOMIQ-azmGg&s" }
+      ,
+      { name: "Farmhouse Pizza ", price: 159, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSk1XBKaoFt93b5bMRcQTdb6UclU3Ii6CczKg&s" }
+      ,
+      { name: "Margherita Pizza ", price: 139, image: "https://cdn.shopify.com/s/files/1/0274/9503/9079/files/20220211142754-margherita-9920_5a73220e-4a1a-4d33-b38f-26e98e3cd986.jpg?v=1723650067" }
+       ,
+      { name: "Coca-Cola ", price: 45 , image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYZ6DnrYn_TbG5HxOVpGiSkmwD692_Lx67iA&s" }
+       ,
+      { name: "Thums Up ", price: 45, image: "https://grocerykishop.in/wp-content/uploads/2022/03/Thums-Up-Soft-Drink.jpg" }
+       ,
+      { name: "Sprite ", price: 45, image: "https://rukminim2.flixcart.com/image/750/900/xif0q/aerated-drink/u/o/i/-original-imagqr8ypcrbgqh4.jpeg?q=90&crop=false" }
+      ,
+      { name: "Slice (Mango)", price: 45, image: "https://www.bbassets.com/media/uploads/p/l/265884_12-slice-thickest-mango-drink.jpg" }
+      ,
+      { name: "Slice (Mango)", price: 45, image: "https://www.bbassets.com/media/uploads/p/l/265884_12-slice-thickest-mango-drink.jpg" },
+      ,
+      { name: "Slice (Mango)", price: 45, image: "https://www.bbassets.com/media/uploads/p/l/265884_12-slice-thickest-mango-drink.jpg" },
+      ,
+      { name: "Black Forest Cake (500g)", price: 650, image: "https://i.ytimg.com/vi/4g0WUw_dCvQ/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBfXYmMkqS0LODigtFU21c5dRwU6Q" },
+      { name: "Vanilla Cake(500g)", price: 450, image: "https://assets.winni.in/product/primary/2023/10/90482.jpeg?dpr=1&w=500" },
+      { name: "Strawberry Cake(500g)", price: 450, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT8-L2SJZdN6m6mRN9RjI9WMhLJxLn8T3XY8A&s" },
+      { name: "Red Velvet Cake(500g)", price: 650, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTyXRdA9pz2i9zRPENsGkUg7YQ6lZ8YAoZqHQ&s" },
+    ];
+
+    const cart = [];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const menuContainer = document.getElementById("menu");
+      menu.forEach((item, index) => {
+        const div = document.createElement("div");
+        div.className = "menu-item bg-white p-4 rounded-lg shadow-md flex flex-col sm:flex-row justify-between items-center fade-in";
+        div.innerHTML = `
+          <div class="flex items-center space-x-4 w-full">
+            <img src="${item.image}" alt="${item.name}" class="w-20 h-20 object-cover rounded-lg" loading="lazy" onerror="this.src='/images/fallback-food.jpg'">
+            <div class="menu-text flex-1">
+              <h3 class="text-lg font-semibold">${item.name}</h3>
+              <span class="price text-red-500 font-bold">₹${item.price}</span>
+            </div>
+          </div>
+          <div class="qty-controls flex items-center space-x-2 mt-4 sm:mt-0">
+            <button class="qty-btn bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition duration-300" onclick="updateQty(${index}, -1)">-</button>
+            <span id="qty-${index}" class="text-lg">0</span>
+            <button class="qty-btn bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition duration-300" onclick="updateQty(${index}, 1)">+</button>
+          </div>`;
+        menuContainer.appendChild(div);
+      });
+    });
+
+    function updateQty(index, change) {
+      const item = menu[index];
+      const existing = cart.find(i => i.name === item.name);
+      if (existing) {
+        existing.qty += change;
+        if (existing.qty <= 0) cart.splice(cart.indexOf(existing), 1);
+      } else if (change > 0) {
+        cart.push({ ...item, qty: 1 });
+      }
+      document.getElementById(`qty-${index}`).textContent = existing ? Math.max(existing.qty, 0) : (change > 0 ? 1 : 0);
+      updateCart();
+    }
+
+    function updateCart() {
+      const cartItemsContainer = document.getElementById("cartItems");
+      const totalCostElement = document.getElementById("totalCost");
+      const packagingFeeElement = document.getElementById("packagingFee");
+      const address = document.getElementById("userAddress").value;
+      cartItemsContainer.innerHTML = "";
+      let total = 0;
+      cart.forEach(item => {
+        const line = document.createElement("div");
+        line.textContent = `${item.name} x ${item.qty} – ₹${item.qty * item.price}`;
+        cartItemsContainer.appendChild(line);
+        total += isNaN(item.qty * item.price) ? 0 : item.qty * item.price;
+      });
+      const packaging = Math.ceil(total * 0.1);
+      packagingFeeElement.textContent = packaging;
+      totalCostElement.textContent = total + packaging;
+      const orderSummary = cart.map(i => `${i.name} x ${i.qty}`).join("%0A");
+      document.getElementById("whatsappLink").href = `https://wa.me/919005678554?text=Hi%2C%20I%20want%20to%20order%3A%0A${orderSummary}%0AAddress%3A%20${encodeURIComponent(address)}%0A%0APackaging%3A%20₹${packaging}%0ADelivery%3A%20To%20be%20confirmed%20after%20location%0ATotal%3A%20₹${total + packaging}%20%2B%20delivery`;
+    }
+
+    function copyUPI() {
+      const upiText = document.getElementById('upiId').innerText;
+      navigator.clipboard.writeText(upiText).then(() => alert('UPI ID copied!'));
+    }
+
+    function filterMenu() {
+      const query = document.getElementById("searchInput").value.toLowerCase();
+      const menuItems = document.querySelectorAll(".menu-item");
+      menuItems.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(query) ? "flex" : "none";
+      });
+    }
+  </script>
+</body>
+</html>
